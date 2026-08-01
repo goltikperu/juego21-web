@@ -1,5 +1,7 @@
-import { useState } from "react";
-import { crearMesa, unirseAMesa } from "./mesa";
+import { useState, useEffect } from "react";
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "./firebase";
+import { crearMesa, solicitarUnirse } from "./mesa";
 
 export default function CrearOUnirse({ perfil, uid, onListo }) {
   const [modo, setModo] = useState(null); // "crear" | "unirse" | null
@@ -7,6 +9,29 @@ export default function CrearOUnirse({ perfil, uid, onListo }) {
   const [codigo, setCodigo] = useState("");
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState("");
+  const [esperandoAprobacion, setEsperandoAprobacion] = useState(null); // codigo si está esperando
+
+  // Mientras espera aprobación, escucha la mesa para saber si ya lo aceptaron (o lo rechazaron)
+  useEffect(() => {
+    if (!esperandoAprobacion) return;
+    const ref = doc(db, "mesas", esperandoAprobacion);
+    const quitar = onSnapshot(ref, (snap) => {
+      if (!snap.exists()) return;
+      const datos = snap.data();
+      const yaEsJugador = datos.jugadores.some((j) => j.uid === uid);
+      if (yaEsJugador) {
+        onListo({ codigo: esperandoAprobacion, esAdmin: false });
+        return;
+      }
+      const sigueEnSolicitudes = (datos.solicitudes || []).some((s) => s.uid === uid);
+      if (!sigueEnSolicitudes) {
+        // lo rechazaron o lo quitaron
+        setEsperandoAprobacion(null);
+        setError("El administrador no aceptó tu solicitud, o la mesa ya se cerró.");
+      }
+    });
+    return quitar;
+  }, [esperandoAprobacion, uid, onListo]);
 
   async function handleCrear() {
     setCargando(true);
@@ -16,6 +41,8 @@ export default function CrearOUnirse({ perfil, uid, onListo }) {
         uid,
         alias: perfil.alias,
         avatarId: perfil.avatarId,
+        celular: perfil.celular,
+        telefono: perfil.telefono,
         ante: Number(ante),
       });
       onListo({ codigo: codigoNuevo, esAdmin: true });
@@ -30,17 +57,37 @@ export default function CrearOUnirse({ perfil, uid, onListo }) {
     setCargando(true);
     setError("");
     try {
-      await unirseAMesa({
-        codigo,
+      const codigoLimpio = codigo.toUpperCase();
+      const resultado = await solicitarUnirse({
+        codigo: codigoLimpio,
         uid,
         alias: perfil.alias,
         avatarId: perfil.avatarId,
+        celular: perfil.celular,
+        telefono: perfil.telefono,
       });
-      onListo({ codigo: codigo.toUpperCase(), esAdmin: false });
+      if (resultado.estado === "aceptado") {
+        onListo({ codigo: codigoLimpio, esAdmin: false });
+      } else {
+        setEsperandoAprobacion(codigoLimpio);
+      }
     } catch (e) {
       setError(e.message || "No se pudo unir a la mesa.");
       setCargando(false);
     }
+  }
+
+  if (esperandoAprobacion) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0B3D2E", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Helvetica, Arial, sans-serif", padding: 16 }}>
+        <div style={{ background: "#F7F3E8", borderRadius: 12, padding: 28, maxWidth: 360, width: "100%", textAlign: "center" }}>
+          <h2 style={{ fontFamily: "Georgia, serif", color: "#0B3D2E", marginTop: 0 }}>Esperando aprobación</h2>
+          <p style={{ fontSize: 14, color: "#555" }}>
+            Le pediste unirte a la mesa <strong>{esperandoAprobacion}</strong>. En cuanto el administrador te acepte, vas a entrar automáticamente.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -92,6 +139,7 @@ export default function CrearOUnirse({ perfil, uid, onListo }) {
 
         {modo === "unirse" && (
           <form onSubmit={handleUnirse}>
+            <p style={{ fontSize: 13, color: "#555" }}>El administrador va a ver tu nombre y celular antes de aceptarte.</p>
             <label style={{ fontSize: 13, color: "#0B3D2E", fontWeight: "bold" }}>Código de la mesa</label>
             <input
               value={codigo}
@@ -106,7 +154,7 @@ export default function CrearOUnirse({ perfil, uid, onListo }) {
               disabled={cargando}
               style={{ width: "100%", padding: 14, borderRadius: 8, border: "none", background: "#C9A227", fontWeight: "bold", cursor: "pointer" }}
             >
-              {cargando ? "Uniendo..." : "Unirme"}
+              {cargando ? "Enviando..." : "Pedir unirme"}
             </button>
             <button type="button" onClick={() => setModo(null)} style={{ width: "100%", padding: 10, marginTop: 8, border: "none", background: "transparent", color: "#555", cursor: "pointer" }}>
               Volver
