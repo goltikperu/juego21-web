@@ -41,6 +41,7 @@ export default function App() {
 const PALO = { p: "♠", c: "♥", d: "♦", t: "♣" };
 const ROJOS = new Set(["c", "d"]);
 const NOMBRES = ["Jugador 1", "Jugador 2", "Jugador 3", "Jugador 4", "Jugador 5"];
+const AVATARES = ["🂡", "🂱", "🃁", "🃑", "🎩", "🕶️", "🦁", "🐯"];
 const ANTE = 20;
 const MAX_CARTAS_EXTRA = 4;
 
@@ -98,6 +99,7 @@ function nuevaRonda(saldos, numRondaAnterior) {
   const mazo = crearMazo();
   const jugadores = NOMBRES.map((nombre, i) => ({
     nombre,
+    avatarId: AVATARES[i % AVATARES.length],
     cartaAbierta: mazo.pop(),
     cartasCerradas: [],
     saldo: saldos[i],
@@ -162,11 +164,11 @@ function EstilosAnimacion() {
 
 function Crupier({ hablando, frase, repartiendo }) {
   return (
-    <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 20 }}>
+    <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 14 }}>
       <div
         style={{
-          width: 56,
-          height: 56,
+          width: 42,
+          height: 42,
           borderRadius: "50%",
           background: "#C9A227",
           display: "flex",
@@ -178,7 +180,7 @@ function Crupier({ hablando, frase, repartiendo }) {
           transition: "transform 220ms ease",
         }}
       >
-        <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
           <path
             d="M4 20 C4 14, 8 10, 12 10 C16 10, 20 14, 20 20"
             stroke="#0B3D2E"
@@ -193,10 +195,10 @@ function Crupier({ hablando, frase, repartiendo }) {
           background: "#F7F3E8",
           borderRadius: 12,
           borderTopLeftRadius: 2,
-          padding: "10px 14px",
+          padding: "8px 12px",
           maxWidth: 460,
           fontFamily: "Helvetica, Arial, sans-serif",
-          fontSize: 13,
+          fontSize: 12,
           color: "#0B3D2E",
           minHeight: 20,
         }}
@@ -209,13 +211,13 @@ function Crupier({ hablando, frase, repartiendo }) {
 
 function Carta({ carta, oculta }) {
   const estiloBase = {
-    width: 54,
-    height: 76,
+    width: "clamp(34px, 11vw, 54px)",
+    height: "clamp(48px, 15.5vw, 76px)",
     borderRadius: 6,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: 22,
+    fontSize: "clamp(14px, 3.6vw, 22px)",
     fontFamily: "Georgia, serif",
     fontWeight: "bold",
     animation: "repartirCarta 380ms ease-out",
@@ -405,11 +407,11 @@ function Juego21() {
   const jugadorRevelando = estado.fase === "revelando" ? estado.jugadores[estado.turnoRevelando] : null;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0B3D2E", padding: "24px 16px", fontFamily: "Georgia, 'Times New Roman', serif" }}>
+    <div style={{ minHeight: "100vh", background: "#0B3D2E", padding: "12px 10px", fontFamily: "Georgia, 'Times New Roman', serif" }}>
       <EstilosAnimacion />
       <div style={{ maxWidth: 960, margin: "0 auto" }}>
         <div style={{ textAlign: "center", marginBottom: 20 }}>
-          <h1 style={{ color: "#F2EAD3", fontSize: 30, letterSpacing: 1, margin: 0 }}>Mesa de 21</h1>
+          <h1 style={{ color: "#F2EAD3", fontSize: "clamp(20px, 6vw, 30px)", letterSpacing: 1, margin: 0 }}>Mesa de 21</h1>
           <p style={{ color: "#C9A227", fontFamily: "Helvetica, Arial, sans-serif", fontSize: 13, marginTop: 4 }}>
             5 jugadores · ante {ANTE} fichas · carta abierta + cartas cerradas a pedido · As vale 11
           </p>
@@ -417,14 +419,19 @@ function Juego21() {
 
         <Crupier hablando={pensando} frase={fraseCrupier} repartiendo={repartiendo} />
 
-        <div style={{ background: "#0E4A38", border: "2px solid #C9A227", borderRadius: 999, padding: "18px 24px", display: "flex", justifyContent: "center", alignItems: "center", marginBottom: 24 }}>
+        <div style={{ background: "#0E4A38", border: "2px solid #C9A227", borderRadius: 999, padding: "10px 20px", display: "flex", justifyContent: "center", alignItems: "center", marginBottom: 14 }}>
           <div style={{ textAlign: "center" }}>
             <div style={{ color: "#C9A227", fontFamily: "Helvetica, Arial, sans-serif", fontSize: 12, letterSpacing: 2 }}>POZO</div>
-            <div style={{ color: "#F2EAD3", fontSize: 34, fontWeight: "bold" }}>{estado.pozo}</div>
+            <div style={{ color: "#F2EAD3", fontSize: "clamp(22px, 6vw, 34px)", fontWeight: "bold" }}>{estado.pozo}</div>
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, marginBottom: 20 }} className="grilla-jugadores">
+          <style>{`
+            @media (min-width: 640px) {
+              .grilla-jugadores { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)) !important; gap: 12px !important; }
+            }
+          `}</style>
           {estado.jugadores.map((j, i) => {
             const esTurnoPidiendo = estado.fase === "pidiendo" && i === estado.turnoPidiendo;
             const esTurnoRevelando = estado.fase === "revelando" && i === estado.turnoRevelando;
@@ -436,26 +443,41 @@ function Juego21() {
                 style={{
                   background: "#F7F3E8",
                   borderRadius: 12,
-                  padding: 12,
+                  padding: "8px 10px",
                   border: esTurnoPidiendo || esTurnoRevelando ? "3px solid #C9A227" : esGanador ? "3px solid #2E7D32" : "3px solid transparent",
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontFamily: "Helvetica, Arial, sans-serif" }}>
-                  <span style={{ fontWeight: "bold", fontSize: 13, color: "#0B3D2E" }}>{j.nombre}</span>
-                  {esGanador && <span style={{ fontSize: 11, color: "#2E7D32", fontWeight: "bold" }}>GANADOR</span>}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: "Helvetica, Arial, sans-serif" }}>
+                  <span
+                    style={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: "50%",
+                      background: "#0E4A38",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 15,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {j.avatarId}
+                  </span>
+                  <span style={{ fontWeight: "bold", fontSize: 12, color: "#0B3D2E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{j.nombre}</span>
+                  {esGanador && <span style={{ fontSize: 10, color: "#2E7D32", fontWeight: "bold", marginLeft: "auto" }}>🏆</span>}
                 </div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "10px 0" }}>
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", margin: "8px 0" }}>
                   <Carta carta={j.cartaAbierta} oculta={false} />
                   {j.cartasCerradas.map((c, ci) => (
                     <Carta key={ci} carta={c} oculta={!j.revelada && estado.fase !== "resultado"} />
                   ))}
                 </div>
-                <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 12, color: "#555" }}>
+                <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 11, color: "#555" }}>
                   Total: <strong style={{ color: j.quebrado ? "#B3432B" : "#0B3D2E" }}>
                     {totalVisible === null ? "?" : totalVisible}{j.quebrado && (j.revelada || estado.fase === "resultado") ? " (pasado)" : ""}
                   </strong>
                 </div>
-                <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 12, color: "#555" }}>
+                <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 11, color: "#555" }}>
                   Saldo: <strong>{j.saldo}</strong>
                 </div>
               </div>
