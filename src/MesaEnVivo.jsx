@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase";
 import { iniciarPartida, pedirCartasCerradas, revelarSiguiente, siguienteRonda } from "./mesaAcciones";
-import { aceptarSolicitud, rechazarSolicitud } from "./mesa";
+import { aceptarSolicitud, rechazarSolicitud, cerrarMesa } from "./mesa";
 
 const PALO = { p: "♠", c: "♥", d: "♦", t: "♣" };
 const ROJOS = new Set(["c", "d"]);
@@ -345,6 +345,7 @@ function botonEstilo(bg, color, border) {
 
 function Lobby({ mesa, codigo, esAdmin, uid }) {
   const [iniciando, setIniciando] = useState(false);
+  const [cerrando, setCerrando] = useState(false);
   const [procesando, setProcesando] = useState(null); // uid de la solicitud en proceso
 
   async function empezar() {
@@ -353,6 +354,16 @@ function Lobby({ mesa, codigo, esAdmin, uid }) {
       await iniciarPartida({ codigo });
     } catch (e) {
       setIniciando(false);
+    }
+  }
+
+  async function cerrar() {
+    if (!window.confirm("¿Cerrar esta sala? Nadie más va a poder entrar ni jugar.")) return;
+    setCerrando(true);
+    try {
+      await cerrarMesa({ codigo, uid });
+    } catch (e) {
+      setCerrando(false);
     }
   }
 
@@ -433,9 +444,14 @@ function Lobby({ mesa, codigo, esAdmin, uid }) {
         )}
 
         {esAdmin ? (
-          <button onClick={empezar} disabled={iniciando} style={{ ...botonEstilo("#C9A227", "#0B3D2E"), width: "100%", padding: 14 }}>
-            {iniciando ? "Repartiendo..." : "Iniciar partida"}
-          </button>
+          <>
+            <button onClick={empezar} disabled={iniciando} style={{ ...botonEstilo("#C9A227", "#0B3D2E"), width: "100%", padding: 14 }}>
+              {iniciando ? "Repartiendo..." : "Iniciar partida"}
+            </button>
+            <button onClick={cerrar} disabled={cerrando} style={{ ...botonEstilo("transparent", "#B3432B", "2px solid #B3432B"), width: "100%", padding: 10, marginTop: 10 }}>
+              {cerrando ? "Cerrando..." : "Cerrar sala"}
+            </button>
+          </>
         ) : (
           <p style={{ color: "#C9A227", fontSize: 13 }}>Esperando a que el administrador inicie la partida...</p>
         )}
@@ -506,6 +522,17 @@ export default function MesaEnVivo({ codigo, esAdmin, uid }) {
     return <p style={{ color: "#F2EAD3", textAlign: "center", padding: 60, fontFamily: "Helvetica, Arial, sans-serif" }}>Cargando mesa...</p>;
   }
 
+  if (mesa.cerrada) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0B3D2E", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Helvetica, Arial, sans-serif", padding: 16 }}>
+        <div style={{ background: "#F7F3E8", borderRadius: 12, padding: 28, maxWidth: 340, width: "100%", textAlign: "center" }}>
+          <h2 style={{ fontFamily: "Georgia, serif", color: "#0B3D2E", marginTop: 0 }}>Sala cerrada</h2>
+          <p style={{ color: "#555", fontSize: 14 }}>El administrador cerró esta mesa. Pídele un nuevo código si quiere abrir otra.</p>
+        </div>
+      </div>
+    );
+  }
+
   if (mesa.fase === "esperando") {
     return <Lobby mesa={mesa} codigo={codigo} esAdmin={esAdmin} uid={uid} />;
   }
@@ -528,6 +555,8 @@ export default function MesaEnVivo({ codigo, esAdmin, uid }) {
   const jugadorPidiendo = mesa.fase === "pidiendo" ? mesa.jugadores[mesa.turnoPidiendo] : null;
   const jugadorRevelando = mesa.fase === "revelando" ? mesa.jugadores[mesa.turnoRevelando] : null;
   const celebrando = mesa.fase === "resultado" && mesa.ganadorIdx !== -1;
+  const miIndice = mesa.jugadores.findIndex((j) => j.uid === uid);
+  const esMiTurnoDePedir = mesa.fase === "pidiendo" && miIndice === mesa.turnoPidiendo;
 
   return (
     <div style={{ minHeight: "100vh", background: "#0B3D2E", padding: "12px 10px", fontFamily: "Georgia, 'Times New Roman', serif" }}>
@@ -552,14 +581,29 @@ export default function MesaEnVivo({ codigo, esAdmin, uid }) {
         <div style={{ textAlign: "center", marginBottom: 10, fontFamily: "Helvetica, Arial, sans-serif" }}>
           <span style={{ color: "#C9A227", fontSize: 12 }}>Mesa {codigo} · </span>
           <span style={{ color: "#F2EAD3", fontSize: 12, fontWeight: "bold" }}>{esAdmin ? "Eres el administrador" : "Jugador"}</span>
+          {esAdmin && (
+            <>
+              {" · "}
+              <button
+                onClick={async () => {
+                  if (window.confirm("¿Cerrar esta sala? Nadie más va a poder jugar.")) {
+                    await cerrarMesa({ codigo, uid });
+                  }
+                }}
+                style={{ background: "none", border: "none", color: "#B3432B", fontSize: 12, textDecoration: "underline", cursor: "pointer", padding: 0 }}
+              >
+                Cerrar sala
+              </button>
+            </>
+          )}
         </div>
 
         {mesa.fase === "pidiendo" &&
           jugadorPidiendo &&
-          (esAdmin ? (
+          (esMiTurnoDePedir ? (
             <div style={{ textAlign: "center" }}>
               <p style={{ color: "#F2EAD3", fontFamily: "Helvetica, Arial, sans-serif", marginBottom: 12 }}>
-                <strong>{jugadorPidiendo.nombre}</strong>, ¿cuántas cartas cerradas quiere?
+                ¿Cuántas cartas cerradas quieres?
               </p>
               <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 14 }}>
                 {Array.from({ length: MAX_CARTAS_EXTRA + 1 }, (_, n) => n).map((n) => (
@@ -578,7 +622,7 @@ export default function MesaEnVivo({ codigo, esAdmin, uid }) {
             </div>
           ) : (
             <p style={{ color: "#C9A227", fontFamily: "Helvetica, Arial, sans-serif", textAlign: "center", fontSize: 13 }}>
-              Esperando a que el administrador reparta las cartas de {jugadorPidiendo.nombre}...
+              Esperando a que {jugadorPidiendo.nombre} pida sus cartas...
             </p>
           ))}
 

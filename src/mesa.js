@@ -117,3 +117,13 @@ export async function cambiarAnte({ codigo, uid, nuevoAnte }) {
   }
   await updateDoc(ref, { ante: nuevoAnte });
 }
+
+export async function cerrarMesa({ codigo, uid }) {
+  const ref = doc(db, "mesas", codigo);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  if (snap.data().creadorUid !== uid) {
+    throw new Error("Solo el administrador puede cerrar la sala.");
+  }
+  await updateDoc(ref, { cerrada: true });
+}
