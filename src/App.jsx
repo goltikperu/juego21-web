@@ -469,17 +469,18 @@ function Juego21() {
           celebrando={estado.fase === "resultado" && estado.ganadorIdx !== -1}
         />
 
-        <div style={{ background: "#0E4A38", border: "2px solid #C9A227", borderRadius: 999, padding: "10px 20px", display: "flex", justifyContent: "center", alignItems: "center", marginBottom: 14 }}>
+        <div style={{ background: "#0E4A38", border: "2px solid #C9A227", borderRadius: 999, padding: "10px 20px", display: "flex", justifyContent: "center", alignItems: "center", marginBottom: 18 }}>
           <div style={{ textAlign: "center" }}>
             <div style={{ color: "#C9A227", fontFamily: "Helvetica, Arial, sans-serif", fontSize: 12, letterSpacing: 2 }}>POZO</div>
             <div style={{ color: "#F2EAD3", fontSize: "clamp(22px, 6vw, 34px)", fontWeight: "bold" }}>{estado.pozo}</div>
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, marginBottom: 20 }} className="grilla-jugadores">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 20 }} className="grilla-jugadores">
           <style>{`
             @media (min-width: 640px) {
               .grilla-jugadores { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)) !important; gap: 12px !important; }
+              .grilla-jugadores .tarjeta-jugador-5 { grid-column: auto !important; }
             }
           `}</style>
           {estado.jugadores.map((j, i) => {
@@ -490,44 +491,46 @@ function Juego21() {
             return (
               <div
                 key={j.nombre}
+                className={i === 4 ? "tarjeta-jugador-5" : ""}
                 style={{
                   background: "#F7F3E8",
-                  borderRadius: 12,
-                  padding: "8px 10px",
+                  borderRadius: 10,
+                  padding: "6px 4px",
                   border: esTurnoPidiendo || esTurnoRevelando ? "3px solid #C9A227" : esGanador ? "3px solid #2E7D32" : "3px solid transparent",
+                  gridColumn: i === 4 ? "2 / 4" : "auto",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: "Helvetica, Arial, sans-serif" }}>
                   <span
                     style={{
-                      width: 26,
-                      height: 26,
+                      width: 18,
+                      height: 18,
                       borderRadius: "50%",
                       background: "#0E4A38",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontSize: 15,
+                      fontSize: 11,
                       flexShrink: 0,
                     }}
                   >
                     {j.avatarId}
                   </span>
-                  <span style={{ fontWeight: "bold", fontSize: 12, color: "#0B3D2E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{j.nombre}</span>
-                  {esGanador && <span style={{ fontSize: 10, color: "#2E7D32", fontWeight: "bold", marginLeft: "auto" }}>🏆</span>}
+                  <span style={{ fontWeight: "bold", fontSize: 9, color: "#0B3D2E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{j.nombre}</span>
+                  {esGanador && <span style={{ fontSize: 9, color: "#2E7D32", fontWeight: "bold", marginLeft: "auto" }}>🏆</span>}
                 </div>
-                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", margin: "8px 0" }}>
+                <div style={{ display: "flex", gap: 2, flexWrap: "wrap", margin: "6px 0" }}>
                   <Carta carta={j.cartaAbierta} oculta={false} />
                   {j.cartasCerradas.map((c, ci) => (
                     <Carta key={ci} carta={c} oculta={!j.revelada && estado.fase !== "resultado"} />
                   ))}
                 </div>
-                <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 11, color: "#555" }}>
+                <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 9, color: "#555" }}>
                   Total: <strong style={{ color: j.quebrado ? "#B3432B" : "#0B3D2E" }}>
                     {totalVisible === null ? "?" : totalVisible}{j.quebrado && (j.revelada || estado.fase === "resultado") ? " (pasado)" : ""}
                   </strong>
                 </div>
-                <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 11, color: "#555" }}>
+                <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 9, color: "#555" }}>
                   Saldo: <strong>{j.saldo}</strong>
                 </div>
               </div>
