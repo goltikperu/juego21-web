@@ -256,7 +256,7 @@ function Crupier({ hablando, frase, repartiendo, celebrando }) {
 function Carta({ carta, oculta }) {
   const estiloBase = {
     width: "clamp(28px, 9.5vw, 48px)",
-    height: "clamp(40px, 13.5vw, 68px)",
+    height: "clamp(30px, 10vw, 51px)",
     borderRadius: 5,
     display: "flex",
     alignItems: "center",
@@ -285,7 +285,91 @@ function Carta({ carta, oculta }) {
   );
 }
 
+function TarjetaJugador({ j, ancho, esResaltada, esGanador, totalVisible, faseResultado }) {
+  return (
+    <div
+      style={{
+        width: ancho,
+        flexShrink: 0,
+        background: "#F7F3E8",
+        borderRadius: 10,
+        padding: "4px 4px",
+        border: esResaltada ? "3px solid #C9A227" : esGanador ? "3px solid #2E7D32" : "3px solid transparent",
+        boxSizing: "border-box",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 5, fontFamily: "Helvetica, Arial, sans-serif" }}>
+        <span
+          style={{
+            width: 18,
+            height: 18,
+            borderRadius: "50%",
+            background: "#0E4A38",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 11,
+            flexShrink: 0,
+          }}
+        >
+          {j.avatarId}
+        </span>
+        <span style={{ fontWeight: "bold", fontSize: 9, color: "#0B3D2E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{j.nombre}</span>
+        {esGanador && <span style={{ fontSize: 9, color: "#2E7D32", fontWeight: "bold", marginLeft: "auto" }}>🏆</span>}
+      </div>
+      <div style={{ display: "flex", gap: 2, flexWrap: "wrap", margin: "4px 0" }}>
+        <Carta carta={j.cartaAbierta} oculta={false} />
+        {j.cartasCerradas.map((c, ci) => (
+          <Carta key={ci} carta={c} oculta={!j.revelada && !faseResultado} />
+        ))}
+      </div>
+      <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 12, color: "#0B3D2E", fontWeight: "bold" }}>
+        Total: {totalVisible === null ? "?" : totalVisible}{j.quebrado && (j.revelada || faseResultado) ? " (pasado)" : ""}
+      </div>
+      <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 12, color: "#0B3D2E", fontWeight: "bold" }}>
+        Saldo: {j.saldo}
+      </div>
+    </div>
+  );
+}
+
+const GAP_JUGADORES = 6;
+
+function FilaJugadores({ jugadores, estado }) {
+  const primeraFila = jugadores.slice(0, 4);
+  const quinto = jugadores[4];
+  const anchoTarjeta = `calc((100% - ${GAP_JUGADORES * 3}px) / 4)`;
+
+  function props(j, i) {
+    const totalVisible = j.revelada || estado.fase === "resultado" ? totalMano(manoCompleta(j)) : null;
+    return {
+      j,
+      ancho: anchoTarjeta,
+      esResaltada: (estado.fase === "pidiendo" && i === estado.turnoPidiendo) || (estado.fase === "revelando" && i === estado.turnoRevelando),
+      esGanador: estado.fase === "resultado" && i === estado.ganadorIdx,
+      totalVisible,
+      faseResultado: estado.fase === "resultado",
+    };
+  }
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div style={{ display: "flex", gap: GAP_JUGADORES }}>
+        {primeraFila.map((j, i) => (
+          <TarjetaJugador key={j.nombre} {...props(j, i)} />
+        ))}
+      </div>
+      {quinto && (
+        <div style={{ display: "flex", justifyContent: "center", marginTop: GAP_JUGADORES }}>
+          <TarjetaJugador {...props(quinto, 4)} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Juego21() {
+
   const saldosIniciales = [500, 500, 500, 500, 500];
   const [estado, setEstado] = useState(() => nuevaRonda(saldosIniciales));
   const [historial, setHistorial] = useState([]);
@@ -294,6 +378,7 @@ function Juego21() {
   const [repartiendo, setRepartiendo] = useState(false);
   const [segundosParaSiguiente, setSegundosParaSiguiente] = useState(null);
   const [cantidadElegida, setCantidadElegida] = useState(0);
+  const [esAdmin, setEsAdmin] = useState(true);
   const rondaId = useRef(0);
 
   useEffect(() => {
@@ -476,86 +561,44 @@ function Juego21() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 20 }} className="grilla-jugadores">
-          <style>{`
-            @media (min-width: 640px) {
-              .grilla-jugadores { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)) !important; gap: 12px !important; }
-              .grilla-jugadores .tarjeta-jugador-5 { grid-column: auto !important; }
-            }
-          `}</style>
-          {estado.jugadores.map((j, i) => {
-            const esTurnoPidiendo = estado.fase === "pidiendo" && i === estado.turnoPidiendo;
-            const esTurnoRevelando = estado.fase === "revelando" && i === estado.turnoRevelando;
-            const esGanador = estado.fase === "resultado" && i === estado.ganadorIdx;
-            const totalVisible = j.revelada || estado.fase === "resultado" ? totalMano(manoCompleta(j)) : null;
-            return (
-              <div
-                key={j.nombre}
-                className={i === 4 ? "tarjeta-jugador-5" : ""}
-                style={{
-                  background: "#F7F3E8",
-                  borderRadius: 10,
-                  padding: "6px 4px",
-                  border: esTurnoPidiendo || esTurnoRevelando ? "3px solid #C9A227" : esGanador ? "3px solid #2E7D32" : "3px solid transparent",
-                  gridColumn: i === 4 ? "2 / 4" : "auto",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: "Helvetica, Arial, sans-serif" }}>
-                  <span
-                    style={{
-                      width: 18,
-                      height: 18,
-                      borderRadius: "50%",
-                      background: "#0E4A38",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 11,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {j.avatarId}
-                  </span>
-                  <span style={{ fontWeight: "bold", fontSize: 9, color: "#0B3D2E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{j.nombre}</span>
-                  {esGanador && <span style={{ fontSize: 9, color: "#2E7D32", fontWeight: "bold", marginLeft: "auto" }}>🏆</span>}
-                </div>
-                <div style={{ display: "flex", gap: 2, flexWrap: "wrap", margin: "6px 0" }}>
-                  <Carta carta={j.cartaAbierta} oculta={false} />
-                  {j.cartasCerradas.map((c, ci) => (
-                    <Carta key={ci} carta={c} oculta={!j.revelada && estado.fase !== "resultado"} />
-                  ))}
-                </div>
-                <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 9, color: "#555" }}>
-                  Total: <strong style={{ color: j.quebrado ? "#B3432B" : "#0B3D2E" }}>
-                    {totalVisible === null ? "?" : totalVisible}{j.quebrado && (j.revelada || estado.fase === "resultado") ? " (pasado)" : ""}
-                  </strong>
-                </div>
-                <div style={{ fontFamily: "Helvetica, Arial, sans-serif", fontSize: 9, color: "#555" }}>
-                  Saldo: <strong>{j.saldo}</strong>
-                </div>
-              </div>
-            );
-          })}
+        <FilaJugadores
+          jugadores={estado.jugadores}
+          estado={estado}
+        />
+
+        <div style={{ textAlign: "center", marginBottom: 10 }}>
+          <button
+            onClick={() => setEsAdmin((a) => !a)}
+            style={{ ...botonEstilo("transparent", "#C9A227", "1px solid #C9A227"), fontSize: 11, padding: "5px 12px" }}
+          >
+            Vista: {esAdmin ? "Administrador" : "Jugador"}
+          </button>
         </div>
 
         {estado.fase === "pidiendo" && jugadorPidiendo && (
-          <div style={{ textAlign: "center" }}>
-            <p style={{ color: "#F2EAD3", fontFamily: "Helvetica, Arial, sans-serif", marginBottom: 12 }}>
-              <strong>{jugadorPidiendo.nombre}</strong>, ¿cuántas cartas cerradas quieres?
-            </p>
-            <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 14 }}>
-              {Array.from({ length: MAX_CARTAS_EXTRA + 1 }, (_, n) => n).map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setCantidadElegida(n)}
-                  style={botonEstilo(cantidadElegida === n ? "#C9A227" : "transparent", cantidadElegida === n ? "#0B3D2E" : "#F2EAD3", "2px solid #C9A227")}
-                >
-                  {n}
-                </button>
-              ))}
+          esAdmin ? (
+            <div style={{ textAlign: "center" }}>
+              <p style={{ color: "#F2EAD3", fontFamily: "Helvetica, Arial, sans-serif", marginBottom: 12 }}>
+                <strong>{jugadorPidiendo.nombre}</strong>, ¿cuántas cartas cerradas quieres?
+              </p>
+              <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 14 }}>
+                {Array.from({ length: MAX_CARTAS_EXTRA + 1 }, (_, n) => n).map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setCantidadElegida(n)}
+                    style={botonEstilo(cantidadElegida === n ? "#C9A227" : "transparent", cantidadElegida === n ? "#0B3D2E" : "#F2EAD3", "2px solid #C9A227")}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <button onClick={confirmarCantidad} style={botonEstilo("#C9A227", "#0B3D2E")}>Confirmar</button>
             </div>
-            <button onClick={confirmarCantidad} style={botonEstilo("#C9A227", "#0B3D2E")}>Confirmar</button>
-          </div>
+          ) : (
+            <p style={{ color: "#C9A227", fontFamily: "Helvetica, Arial, sans-serif", textAlign: "center", fontSize: 13 }}>
+              Esperando a que el administrador reparta las cartas de {jugadorPidiendo.nombre}...
+            </p>
+          )
         )}
 
         {estado.fase === "revelando" && jugadorRevelando && (
