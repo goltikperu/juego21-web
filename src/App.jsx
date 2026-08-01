@@ -1,14 +1,16 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import Login from "./Login";
 import PerfilForm from "./PerfilForm";
+import CrearOUnirse from "./CrearOUnirse";
 
 export default function App() {
   const [usuario, setUsuario] = useState(null);
   const [perfil, setPerfil] = useState(null);
   const [cargando, setCargando] = useState(true);
+  const [mesa, setMesa] = useState(null); // { codigo, esAdmin }
 
   useEffect(() => {
     const quitar = onAuthStateChanged(auth, async (u) => {
@@ -34,8 +36,17 @@ export default function App() {
       />
     );
   }
+  if (!mesa) {
+    return (
+      <CrearOUnirse
+        perfil={perfil}
+        uid={usuario.uid}
+        onListo={(m) => setMesa(m)}
+      />
+    );
+  }
 
-  return <Juego21 />;
+  return <Juego21 esAdmin={mesa.esAdmin} codigo={mesa.codigo} />;
 }
 
 const PALO = { p: "♠", c: "♥", d: "♦", t: "♣" };
@@ -166,6 +177,14 @@ function EstilosAnimacion() {
         0%, 100% { transform: scale(1); }
         50% { transform: scale(1.15); }
       }
+      @keyframes parpadeo {
+        0%, 92%, 100% { transform: scaleY(1); }
+        96% { transform: scaleY(0.08); }
+      }
+      @keyframes abanicoCartas {
+        0%, 100% { transform: rotate(0deg); }
+        50% { transform: rotate(5deg); }
+      }
     `}</style>
   );
 }
@@ -201,38 +220,82 @@ function Confeti() {
   );
 }
 
+function CrupierIlustrada({ celebrando, tamano }) {
+  const boca = celebrando
+    ? "M296 274 Q340 316 384 274 Q368 300 340 302 Q312 300 296 274 Z"
+    : "M304 278 Q340 305 376 278 Q365 292 340 294 Q315 292 304 278 Z";
+  return (
+    <svg width={tamano} height={tamano * (460 / 680)} viewBox="0 0 680 460" style={{ flexShrink: 0, overflow: "visible" }}>
+      <defs>
+        <clipPath id="marcoCrupier"><circle cx="340" cy="200" r="150" /></clipPath>
+      </defs>
+
+      <circle cx="340" cy="200" r="158" fill="#0E4A38" />
+      <circle cx="340" cy="200" r="150" fill="#F2EAD3" />
+
+      <g clipPath="url(#marcoCrupier)">
+        <rect x="190" y="60" width="300" height="340" fill="#F7E4C9" />
+        <path d="M225 250 C225 150 275 90 340 90 C405 90 455 150 455 250 L455 400 L225 400 Z" fill="#3B2A20" />
+        <path d="M240 200 C240 130 285 105 340 105 C395 105 440 130 440 200 L440 230 C440 190 400 170 340 170 C280 170 240 190 240 230 Z" fill="#2E2018" />
+
+        <ellipse cx="340" cy="245" rx="78" ry="90" fill="#E8B98C" />
+
+        <g style={{ transformOrigin: "308px 235px", animation: "parpadeo 4.5s ease-in-out infinite" }}>
+          <ellipse cx="308" cy="240" rx="9" ry="12" fill="#3B2A20" />
+        </g>
+        <g style={{ transformOrigin: "372px 235px", animation: "parpadeo 4.5s ease-in-out infinite" }}>
+          <ellipse cx="372" cy="240" rx="9" ry="12" fill="#3B2A20" />
+        </g>
+
+        <path d="M296 226 Q308 218 320 226" fill="none" stroke="#2E2018" strokeWidth="3" strokeLinecap="round" />
+        <path d="M360 226 Q372 218 384 226" fill="none" stroke="#2E2018" strokeWidth="3" strokeLinecap="round" />
+        <path d="M330 250 Q340 262 350 250" fill="none" stroke="#C98A5E" strokeWidth="2.5" strokeLinecap="round" />
+
+        <path d={boca} fill="#B3432B" />
+
+        <circle cx="284" cy="270" r="16" fill="#E8956B" opacity={celebrando ? 0.75 : 0.55} />
+        <circle cx="396" cy="270" r="16" fill="#E8956B" opacity={celebrando ? 0.75 : 0.55} />
+
+        <rect x="248" y="330" width="184" height="70" fill="#F2EAD3" />
+        <path d="M248 330 L340 355 L432 330 L432 400 L248 400 Z" fill="#0B3D2E" />
+        <path d="M320 336 L340 358 L360 336 L352 330 L340 344 L328 330 Z" fill="#111" />
+        <rect x="332" y="332" width="16" height="30" fill="#111" />
+
+        <rect x="230" y="340" width="220" height="60" fill="#0E4A38" />
+        <rect x="230" y="340" width="220" height="10" fill="#C9A227" />
+      </g>
+
+      <circle cx="340" cy="200" r="150" fill="none" stroke="#C9A227" strokeWidth="4" />
+
+      <g style={{ transformOrigin: "460px 355px", animation: "abanicoCartas 2.6s ease-in-out infinite" }}>
+        <g transform="translate(430,330) rotate(-18)">
+          <rect x="0" y="0" width="46" height="64" rx="4" fill="#fff" stroke="#999" strokeWidth="1.5" />
+          <text x="8" y="20" fontSize="18" fontFamily="Georgia, serif" fontWeight="bold" fill="#B3432B">A♥</text>
+        </g>
+        <g transform="translate(452,340) rotate(-6)">
+          <rect x="0" y="0" width="46" height="64" rx="4" fill="#fff" stroke="#999" strokeWidth="1.5" />
+          <text x="8" y="20" fontSize="18" fontFamily="Georgia, serif" fontWeight="bold" fill="#222">K♠</text>
+        </g>
+        <g transform="translate(468,352) rotate(8)">
+          <rect x="0" y="0" width="46" height="64" rx="4" fill="#fff" stroke="#999" strokeWidth="1.5" />
+          <text x="8" y="20" fontSize="18" fontFamily="Georgia, serif" fontWeight="bold" fill="#B3432B">Q♦</text>
+        </g>
+      </g>
+    </svg>
+  );
+}
+
 function Crupier({ hablando, frase, repartiendo, celebrando }) {
   return (
-    <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 14 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
       <div
         style={{
-          width: 42,
-          height: 42,
-          borderRadius: "50%",
-          background: "#C9A227",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-          border: "2px solid #F2EAD3",
-          transform: repartiendo ? "rotate(-8deg) scale(1.05)" : "rotate(0deg) scale(1)",
+          transform: repartiendo ? "scale(1.05)" : "scale(1)",
           transition: "transform 220ms ease",
           animation: celebrando ? "aplaudir 550ms ease-in-out 3" : "none",
         }}
       >
-        {celebrando ? (
-          <span style={{ fontSize: 20 }}>👏</span>
-        ) : (
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M4 20 C4 14, 8 10, 12 10 C16 10, 20 14, 20 20"
-              stroke="#0B3D2E"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-            <circle cx="12" cy="6" r="4" fill="#0B3D2E" />
-          </svg>
-        )}
+        <CrupierIlustrada celebrando={celebrando} tamano={72} />
       </div>
       <div
         style={{
@@ -368,7 +431,7 @@ function FilaJugadores({ jugadores, estado }) {
   );
 }
 
-function Juego21() {
+function Juego21({ esAdmin, codigo }) {
 
   const saldosIniciales = [500, 500, 500, 500, 500];
   const [estado, setEstado] = useState(() => nuevaRonda(saldosIniciales));
@@ -378,7 +441,6 @@ function Juego21() {
   const [repartiendo, setRepartiendo] = useState(false);
   const [segundosParaSiguiente, setSegundosParaSiguiente] = useState(null);
   const [cantidadElegida, setCantidadElegida] = useState(0);
-  const [esAdmin, setEsAdmin] = useState(true);
   const rondaId = useRef(0);
 
   useEffect(() => {
@@ -566,13 +628,9 @@ function Juego21() {
           estado={estado}
         />
 
-        <div style={{ textAlign: "center", marginBottom: 10 }}>
-          <button
-            onClick={() => setEsAdmin((a) => !a)}
-            style={{ ...botonEstilo("transparent", "#C9A227", "1px solid #C9A227"), fontSize: 11, padding: "5px 12px" }}
-          >
-            Vista: {esAdmin ? "Administrador" : "Jugador"}
-          </button>
+        <div style={{ textAlign: "center", marginBottom: 10, fontFamily: "Helvetica, Arial, sans-serif" }}>
+          <span style={{ color: "#C9A227", fontSize: 12 }}>Mesa {codigo} · </span>
+          <span style={{ color: "#F2EAD3", fontSize: 12, fontWeight: "bold" }}>{esAdmin ? "Eres el administrador" : "Jugador"}</span>
         </div>
 
         {estado.fase === "pidiendo" && jugadorPidiendo && (

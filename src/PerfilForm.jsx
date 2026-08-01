@@ -6,6 +6,8 @@ const AVATARES = ["🂡", "🂱", "🃁", "🃑", "🎩", "🕶️", "🦁", "�
 
 export default function PerfilForm({ uid, onListo }) {
   const [alias, setAlias] = useState("");
+  const [celular, setCelular] = useState("");
+  const [telefono, setTelefono] = useState("");
   const [avatarId, setAvatarId] = useState(AVATARES[0]);
   const [guardando, setGuardando] = useState(false);
 
@@ -13,8 +15,17 @@ export default function PerfilForm({ uid, onListo }) {
     e.preventDefault();
     if (!alias.trim()) return;
     setGuardando(true);
-    await setDoc(doc(db, "usuarios", uid), { alias: alias.trim(), avatarId }, { merge: true });
-    onListo({ alias: alias.trim(), avatarId });
+    await setDoc(
+      doc(db, "usuarios", uid),
+      {
+        alias: alias.trim(),
+        avatarId,
+        celular: celular.trim(),
+        telefono: telefono.trim(),
+      },
+      { merge: true }
+    );
+    onListo({ alias: alias.trim(), avatarId, celular: celular.trim(), telefono: telefono.trim() });
   }
 
   return (
@@ -29,6 +40,24 @@ export default function PerfilForm({ uid, onListo }) {
           maxLength={16}
           required
           style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid #999", marginBottom: 16, boxSizing: "border-box" }}
+        />
+
+        <label style={{ fontSize: 13, color: "#0B3D2E", fontWeight: "bold" }}>Celular</label>
+        <input
+          type="tel"
+          value={celular}
+          onChange={(e) => setCelular(e.target.value)}
+          placeholder="Ej. 987654321"
+          style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid #999", margin: "6px 0 16px", boxSizing: "border-box" }}
+        />
+
+        <label style={{ fontSize: 13, color: "#0B3D2E", fontWeight: "bold" }}>Teléfono</label>
+        <input
+          type="tel"
+          value={telefono}
+          onChange={(e) => setTelefono(e.target.value)}
+          placeholder="Ej. 014567890"
+          style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid #999", margin: "6px 0 20px", boxSizing: "border-box" }}
         />
 
         <p style={{ margin: "0 0 8px", fontSize: 13, color: "#555" }}>Elige tu avatar</p>
