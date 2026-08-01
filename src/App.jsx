@@ -158,11 +158,50 @@ function EstilosAnimacion() {
         70% { opacity: 1; transform: scale(1.08) translateY(4px); }
         100% { opacity: 1; transform: scale(1) translateY(0); }
       }
+      @keyframes caerConfeti {
+        0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+        100% { transform: translateY(105vh) rotate(540deg); opacity: 0.9; }
+      }
+      @keyframes aplaudir {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.15); }
+      }
     `}</style>
   );
 }
 
-function Crupier({ hablando, frase, repartiendo }) {
+const COLORES_CONFETI = ["#C9A227", "#F2EAD3", "#2E7D32", "#B3432B", "#0E4A38"];
+
+function Confeti() {
+  const piezas = Array.from({ length: 26 }, (_, i) => ({
+    izquierda: Math.random() * 100,
+    retraso: Math.random() * 0.6,
+    duracion: 1.8 + Math.random() * 1.2,
+    color: COLORES_CONFETI[i % COLORES_CONFETI.length],
+    giro: Math.random() * 360,
+  }));
+  return (
+    <div style={{ position: "fixed", inset: 0, pointerEvents: "none", overflow: "hidden", zIndex: 50 }}>
+      {piezas.map((p, i) => (
+        <div
+          key={i}
+          style={{
+            position: "absolute",
+            left: p.izquierda + "%",
+            top: 0,
+            width: 8,
+            height: 12,
+            background: p.color,
+            transform: `rotate(${p.giro}deg)`,
+            animation: `caerConfeti ${p.duracion}s ease-in ${p.retraso}s forwards`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function Crupier({ hablando, frase, repartiendo, celebrando }) {
   return (
     <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 14 }}>
       <div
@@ -178,17 +217,22 @@ function Crupier({ hablando, frase, repartiendo }) {
           border: "2px solid #F2EAD3",
           transform: repartiendo ? "rotate(-8deg) scale(1.05)" : "rotate(0deg) scale(1)",
           transition: "transform 220ms ease",
+          animation: celebrando ? "aplaudir 550ms ease-in-out 3" : "none",
         }}
       >
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <path
-            d="M4 20 C4 14, 8 10, 12 10 C16 10, 20 14, 20 20"
-            stroke="#0B3D2E"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-          <circle cx="12" cy="6" r="4" fill="#0B3D2E" />
-        </svg>
+        {celebrando ? (
+          <span style={{ fontSize: 20 }}>👏</span>
+        ) : (
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M4 20 C4 14, 8 10, 12 10 C16 10, 20 14, 20 20"
+              stroke="#0B3D2E"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+            <circle cx="12" cy="6" r="4" fill="#0B3D2E" />
+          </svg>
+        )}
       </div>
       <div
         style={{
@@ -211,13 +255,13 @@ function Crupier({ hablando, frase, repartiendo }) {
 
 function Carta({ carta, oculta }) {
   const estiloBase = {
-    width: "clamp(34px, 11vw, 54px)",
-    height: "clamp(48px, 15.5vw, 76px)",
-    borderRadius: 6,
+    width: "clamp(28px, 9.5vw, 48px)",
+    height: "clamp(40px, 13.5vw, 68px)",
+    borderRadius: 5,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "clamp(14px, 3.6vw, 22px)",
+    fontSize: "clamp(12px, 3.1vw, 20px)",
     fontFamily: "Georgia, serif",
     fontWeight: "bold",
     animation: "repartirCarta 380ms ease-out",
@@ -409,6 +453,7 @@ function Juego21() {
   return (
     <div style={{ minHeight: "100vh", background: "#0B3D2E", padding: "12px 10px", fontFamily: "Georgia, 'Times New Roman', serif" }}>
       <EstilosAnimacion />
+      {estado.fase === "resultado" && estado.ganadorIdx !== -1 && <Confeti key={estado.numRonda} />}
       <div style={{ maxWidth: 960, margin: "0 auto" }}>
         <div style={{ textAlign: "center", marginBottom: 20 }}>
           <h1 style={{ color: "#F2EAD3", fontSize: "clamp(20px, 6vw, 30px)", letterSpacing: 1, margin: 0 }}>Mesa de 21</h1>
@@ -417,7 +462,12 @@ function Juego21() {
           </p>
         </div>
 
-        <Crupier hablando={pensando} frase={fraseCrupier} repartiendo={repartiendo} />
+        <Crupier
+          hablando={pensando}
+          frase={fraseCrupier}
+          repartiendo={repartiendo}
+          celebrando={estado.fase === "resultado" && estado.ganadorIdx !== -1}
+        />
 
         <div style={{ background: "#0E4A38", border: "2px solid #C9A227", borderRadius: 999, padding: "10px 20px", display: "flex", justifyContent: "center", alignItems: "center", marginBottom: 14 }}>
           <div style={{ textAlign: "center" }}>
