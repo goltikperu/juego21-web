@@ -12,11 +12,10 @@ function generarCodigo() {
   return codigo;
 }
 
-export async function crearMesa({ uid, alias, avatarId, ante }) {
+export async function crearMesa({ uid, alias, avatarId, celular, telefono, ante }) {
   let codigo = generarCodigo();
   let ref = doc(db, "mesas", codigo);
 
-  // por si el código ya existiera (muy poco probable), intenta unas veces más
   for (let intento = 0; intento < 5; intento++) {
     const snap = await getDoc(ref);
     if (!snap.exists()) break;
@@ -29,14 +28,15 @@ export async function crearMesa({ uid, alias, avatarId, ante }) {
     creadorUid: uid,
     ante,
     fase: "esperando",
-    jugadores: [{ uid, alias, avatarId, asiento: 0, saldo: 500 }],
+    jugadores: [{ uid, alias, avatarId, celular: celular || "", telefono: telefono || "", asiento: 0, saldo: 500 }],
+    solicitudes: [],
     creadaEn: Date.now(),
   });
 
   return codigo;
 }
 
-export async function unirseAMesa({ codigo, uid, alias, avatarId }) {
+export async function solicitarUnirse({ codigo, uid, alias, avatarId, celular, telefono }) {
   const ref = doc(db, "mesas", codigo.toUpperCase());
 
   return runTransaction(db, async (tx) => {
@@ -45,17 +45,66 @@ export async function unirseAMesa({ codigo, uid, alias, avatarId }) {
       throw new Error("No existe una mesa con ese código.");
     }
     const datos = snap.data();
-    const yaEsta = datos.jugadores.some((j) => j.uid === uid);
-    if (yaEsta) {
-      return datos;
-    }
+
+    const yaEsJugador = datos.jugadores.some((j) => j.uid === uid);
+    if (yaEsJugador) return { estado: "aceptado" };
+
+    const solicitudes = datos.solicitudes || [];
+    const yaSolicito = solicitudes.some((s) => s.uid === uid);
+    if (yaSolicito) return { estado: "pendiente" };
+
     if (datos.jugadores.length >= MAX_JUGADORES) {
       throw new Error("Esa mesa ya está completa (5 jugadores).");
     }
-    const nuevoJugador = { uid, alias, avatarId, asiento: datos.jugadores.length, saldo: 500 };
-    const jugadoresActualizados = [...datos.jugadores, nuevoJugador];
-    tx.update(ref, { jugadores: jugadoresActualizados });
-    return { ...datos, jugadores: jugadoresActualizados };
+
+    const nuevaSolicitud = { uid, alias, avatarId, celular: celular || "", telefono: telefono || "", pedidaEn: Date.now() };
+    tx.update(ref, { solicitudes: [...solicitudes, nuevaSolicitud] });
+    return { estado: "pendiente" };
+  });
+}
+
+export async function aceptarSolicitud({ codigo, uid, adminUid }) {
+  const ref = doc(db, "mesas", codigo);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error("La mesa ya no existe.");
+    const datos = snap.data();
+    if (datos.creadorUid !== adminUid) {
+      throw new Error("Solo el administrador puede aceptar jugadores.");
+    }
+    const solicitud = (datos.solicitudes || []).find((s) => s.uid === uid);
+    if (!solicitud) return;
+    if (datos.jugadores.length >= MAX_JUGADORES) {
+      throw new Error("La mesa ya está completa.");
+    }
+    const nuevoJugador = {
+      uid: solicitud.uid,
+      alias: solicitud.alias,
+      avatarId: solicitud.avatarId,
+      celular: solicitud.celular,
+      telefono: solicitud.telefono,
+      asiento: datos.jugadores.length,
+      saldo: 500,
+    };
+    tx.update(ref, {
+      jugadores: [...datos.jugadores, nuevoJugador],
+      solicitudes: (datos.solicitudes || []).filter((s) => s.uid !== uid),
+    });
+  });
+}
+
+export async function rechazarSolicitud({ codigo, uid, adminUid }) {
+  const ref = doc(db, "mesas", codigo);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) return;
+    const datos = snap.data();
+    if (datos.creadorUid !== adminUid) {
+      throw new Error("Solo el administrador puede rechazar solicitudes.");
+    }
+    tx.update(ref, {
+      solicitudes: (datos.solicitudes || []).filter((s) => s.uid !== uid),
+    });
   });
 }
 
