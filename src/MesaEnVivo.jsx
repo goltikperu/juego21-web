@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase";
-import { iniciarPartida, pedirCartasCerradas, revelarSiguiente, siguienteRonda } from "./mesaAcciones";
+import { iniciarRepartoFisico, pedirCartasCerradas, revelarSiguiente, siguienteRonda } from "./mesaAcciones";
 import { aceptarSolicitud, rechazarSolicitud, cerrarMesa } from "./mesa";
 
 const PALO = { p: "♠", c: "♥", d: "♦", t: "♣" };
@@ -20,25 +20,21 @@ const FRASES_RESPALDO = {
 };
 
 function valorCarta(v) {
-  if (v === 1) return 11;
-  if (v >= 11) return 10;
-  return v;
+  if (v === "A") return 11;
+  if (["J", "Q", "K", "10"].includes(v)) return 10;
+  return Number(v);
 }
 
 function etiquetaCarta(v) {
-  if (v === 1) return "A";
-  if (v === 11) return "J";
-  if (v === 12) return "Q";
-  if (v === 13) return "K";
-  return String(v);
+  return v;
 }
 
 function totalMano(mano) {
-  return mano.reduce((s, c) => s + valorCarta(c.v), 0);
+  return mano.filter(Boolean).reduce((s, c) => s + valorCarta(c.valor), 0);
 }
 
 function manoCompleta(j) {
-  return [j.cartaAbierta, ...j.cartasCerradas];
+  return j.cartaAbierta ? [j.cartaAbierta, ...j.cartasCerradas] : [];
 }
 
 async function pedirComentario(prompt, respaldoLista) {
@@ -240,9 +236,23 @@ function Carta({ carta, oculta }) {
   }
   return (
     <div style={{ ...estiloBase, background: "#fff", border: "1px solid #999", color: ROJOS.has(carta.palo) ? "#B3432B" : "#222" }}>
-      {etiquetaCarta(carta.v)}
+      {etiquetaCarta(carta.valor)}
       {PALO[carta.palo]}
     </div>
+  );
+}
+
+function CartaVacia() {
+  return (
+    <div
+      style={{
+        width: "clamp(28px, 9.5vw, 48px)",
+        height: "clamp(30px, 10vw, 51px)",
+        borderRadius: 5,
+        border: "2px dashed #999",
+        opacity: 0.5,
+      }}
+    />
   );
 }
 
@@ -279,7 +289,7 @@ function TarjetaJugador({ j, ancho, esResaltada, esGanador, totalVisible, faseRe
         {esGanador && <span style={{ fontSize: 9, color: "#2E7D32", fontWeight: "bold", marginLeft: "auto" }}>🏆</span>}
       </div>
       <div style={{ display: "flex", gap: 2, flexWrap: "wrap", margin: "4px 0" }}>
-        <Carta carta={j.cartaAbierta} oculta={false} />
+        {j.cartaAbierta ? <Carta carta={j.cartaAbierta} oculta={false} /> : <CartaVacia />}
         {j.cartasCerradas.map((c, ci) => (
           <Carta key={ci} carta={c} oculta={!j.revelada && !faseResultado} />
         ))}
@@ -351,7 +361,7 @@ function Lobby({ mesa, codigo, esAdmin, uid }) {
   async function empezar() {
     setIniciando(true);
     try {
-      await iniciarPartida({ codigo });
+      await iniciarRepartoFisico({ codigo });
     } catch (e) {
       setIniciando(false);
     }
@@ -598,9 +608,19 @@ export default function MesaEnVivo({ codigo, esAdmin, uid }) {
           )}
         </div>
 
+        {mesa.fase === "repartiendo_inicial" && (
+          <p style={{ color: "#C9A227", fontFamily: "Helvetica, Arial, sans-serif", textAlign: "center", fontSize: 14 }}>
+            El dealer está repartiendo las cartas físicas... ({mesa.turnoReparto} de {mesa.jugadores.length})
+          </p>
+        )}
+
         {mesa.fase === "pidiendo" &&
           jugadorPidiendo &&
-          (esMiTurnoDePedir ? (
+          (mesa.repartoPendiente ? (
+            <p style={{ color: "#C9A227", fontFamily: "Helvetica, Arial, sans-serif", textAlign: "center", fontSize: 13 }}>
+              El dealer le está repartiendo cartas a {jugadorPidiendo.nombre}... ({mesa.repartoPendiente.cantidadRecibida} de {mesa.repartoPendiente.cantidadPedida})
+            </p>
+          ) : esMiTurnoDePedir ? (
             <div style={{ textAlign: "center" }}>
               <p style={{ color: "#F2EAD3", fontFamily: "Helvetica, Arial, sans-serif", marginBottom: 12 }}>
                 ¿Cuántas cartas cerradas quieres?
