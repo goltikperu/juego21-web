@@ -14,6 +14,7 @@ export default function App() {
   const [cargando, setCargando] = useState(true);
   const [mesa, setMesa] = useState(null); // { codigo, esAdmin }
   const [verSuperAdmin, setVerSuperAdmin] = useState(false);
+  const [editandoPerfil, setEditandoPerfil] = useState(false);
 
   useEffect(() => {
     const quitar = onAuthStateChanged(auth, async (u) => {
@@ -40,6 +41,20 @@ export default function App() {
     );
   }
 
+  if (editandoPerfil) {
+    return (
+      <PerfilForm
+        uid={usuario.uid}
+        valoresIniciales={perfil}
+        onListo={(p) => {
+          setPerfil((prev) => ({ ...prev, ...p }));
+          setEditandoPerfil(false);
+        }}
+        onCancelar={() => setEditandoPerfil(false)}
+      />
+    );
+  }
+
   if (perfil.esSuperAdmin && verSuperAdmin) {
     return (
       <div>
@@ -58,19 +73,13 @@ export default function App() {
 
   if (!mesa) {
     return (
-      <>
-        <CrearOUnirse perfil={perfil} uid={usuario.uid} onListo={setMesa} />
-        {perfil.esSuperAdmin && (
-          <div style={{ textAlign: "center", marginTop: -16, paddingBottom: 20 }}>
-            <button
-              onClick={() => setVerSuperAdmin(true)}
-              style={{ background: "none", border: "none", color: "#C9A227", fontSize: 12, textDecoration: "underline", cursor: "pointer" }}
-            >
-              Ver panel de superadmin
-            </button>
-          </div>
-        )}
-      </>
+      <CrearOUnirse
+        perfil={perfil}
+        uid={usuario.uid}
+        onListo={setMesa}
+        onEditarPerfil={() => setEditandoPerfil(true)}
+        onVerSuperAdmin={perfil.esSuperAdmin ? () => setVerSuperAdmin(true) : null}
+      />
     );
   }
 

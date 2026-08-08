@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase";
 import { iniciarRepartoFisico, pedirCartasCerradas, revelarSiguiente, siguienteRonda } from "./mesaAcciones";
-import { aceptarSolicitud, rechazarSolicitud, cerrarMesa, cambiarAnte } from "./mesa";
+import { aceptarSolicitud, rechazarSolicitud, cerrarMesa, cambiarAnte, agregarJugadorManual, cambiarNombreJugador, subirFichas, quitarJugador } from "./mesa";
 
 const PALO = { p: "♠", c: "♥", d: "♦", t: "♣" };
 const ROJOS = new Set(["c", "d"]);
@@ -397,6 +397,136 @@ function VistaObs({ mesa, fraseCrupier }) {
   );
 }
 
+function ConsolaJugadores({ mesa, codigo, uid, permiteQuitar }) {
+  const [nombreNuevo, setNombreNuevo] = useState("");
+  const [agregando, setAgregando] = useState(false);
+  const [editandoUid, setEditandoUid] = useState(null);
+  const [nombreEditado, setNombreEditado] = useState("");
+  const [fichasUid, setFichasUid] = useState(null);
+  const [montoFichas, setMontoFichas] = useState(100);
+
+  async function agregar(e) {
+    e.preventDefault();
+    if (!nombreNuevo.trim()) return;
+    setAgregando(true);
+    try {
+      await agregarJugadorManual({ codigo, adminUid: uid, nombre: nombreNuevo });
+      setNombreNuevo("");
+    } catch (e) {
+      window.alert(e.message || "No se pudo agregar el jugador.");
+    } finally {
+      setAgregando(false);
+    }
+  }
+
+  async function guardarNombre(jugadorUid) {
+    try {
+      await cambiarNombreJugador({ codigo, adminUid: uid, jugadorUid, nuevoNombre: nombreEditado });
+      setEditandoUid(null);
+    } catch (e) {
+      window.alert(e.message || "No se pudo cambiar el nombre.");
+    }
+  }
+
+  async function aplicarFichas(jugadorUid) {
+    try {
+      await subirFichas({ codigo, adminUid: uid, jugadorUid, cantidad: montoFichas });
+      setFichasUid(null);
+    } catch (e) {
+      window.alert(e.message || "No se pudo actualizar las fichas.");
+    }
+  }
+
+  async function quitar(jugadorUid) {
+    if (!window.confirm("¿Quitar a este jugador de la mesa?")) return;
+    try {
+      await quitarJugador({ codigo, adminUid: uid, jugadorUid });
+    } catch (e) {
+      window.alert(e.message || "No se pudo quitar al jugador.");
+    }
+  }
+
+  return (
+    <div style={{ background: "#0E4A38", border: "2px solid #C9A227", borderRadius: 12, padding: 14, marginBottom: 20 }}>
+      <p style={{ color: "#C9A227", fontSize: 12, letterSpacing: 1, marginTop: 0, marginBottom: 10 }}>CONSOLA DE ADMINISTRACIÓN</p>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+        {mesa.jugadores.map((j) => (
+          <div key={j.uid} style={{ background: "#F7F3E8", borderRadius: 8, padding: "8px 10px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 16 }}>{j.avatarId}</span>
+              {editandoUid === j.uid ? (
+                <input
+                  value={nombreEditado}
+                  onChange={(e) => setNombreEditado(e.target.value)}
+                  style={{ flex: 1, padding: "3px 6px", borderRadius: 6, border: "1px solid #999", fontSize: 13 }}
+                  autoFocus
+                />
+              ) : (
+                <span style={{ color: "#0B3D2E", fontWeight: "bold", fontSize: 13, flex: 1 }}>{j.alias}</span>
+              )}
+              <span style={{ color: "#555", fontSize: 12 }}>{j.saldo} fichas</span>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, marginTop: 6, fontSize: 11 }}>
+              {editandoUid === j.uid ? (
+                <>
+                  <button onClick={() => guardarNombre(j.uid)} style={enlaceEstilo("#2E7D32")}>Guardar</button>
+                  <button onClick={() => setEditandoUid(null)} style={enlaceEstilo("#555")}>Cancelar</button>
+                </>
+              ) : (
+                <button onClick={() => { setEditandoUid(j.uid); setNombreEditado(j.alias); }} style={enlaceEstilo("#0B3D2E")}>
+                  Cambiar nombre
+                </button>
+              )}
+
+              {fichasUid === j.uid ? (
+                <>
+                  <input
+                    type="number"
+                    value={montoFichas}
+                    onChange={(e) => setMontoFichas(e.target.value)}
+                    style={{ width: 55, padding: "2px 4px", borderRadius: 4, border: "1px solid #999", fontSize: 11 }}
+                  />
+                  <button onClick={() => aplicarFichas(j.uid)} style={enlaceEstilo("#2E7D32")}>Aplicar</button>
+                  <button onClick={() => setFichasUid(null)} style={enlaceEstilo("#555")}>Cancelar</button>
+                </>
+              ) : (
+                <button onClick={() => { setFichasUid(j.uid); setMontoFichas(100); }} style={enlaceEstilo("#0B3D2E")}>
+                  Subir fichas
+                </button>
+              )}
+
+              {permiteQuitar && mesa.fase === "esperando" && (
+                <button onClick={() => quitar(j.uid)} style={enlaceEstilo("#B3432B")}>Quitar</button>
+              )}
+            </div>
+          </div>
+        ))}
+        {mesa.jugadores.length === 0 && <p style={{ color: "#C9A227", fontSize: 12 }}>Todavía no hay jugadores en la mesa.</p>}
+      </div>
+
+      {mesa.fase === "esperando" && mesa.jugadores.length < 5 && (
+        <form onSubmit={agregar} style={{ display: "flex", gap: 6 }}>
+          <input
+            value={nombreNuevo}
+            onChange={(e) => setNombreNuevo(e.target.value)}
+            placeholder="Nombre del jugador"
+            style={{ flex: 1, padding: "6px 8px", borderRadius: 6, border: "1px solid #C9A227", fontSize: 12 }}
+          />
+          <button type="submit" disabled={agregando} style={{ ...botonEstilo("#C9A227", "#0B3D2E"), padding: "6px 12px", fontSize: 12, margin: 0 }}>
+            {agregando ? "..." : "Agregar"}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+function enlaceEstilo(color) {
+  return { background: "none", border: "none", color, textDecoration: "underline", cursor: "pointer", padding: 0, fontSize: 11 };
+}
+
 function Lobby({ mesa, codigo, esAdmin, uid }) {
   const [iniciando, setIniciando] = useState(false);
   const [cerrando, setCerrando] = useState(false);
@@ -418,6 +548,10 @@ function Lobby({ mesa, codigo, esAdmin, uid }) {
   }
 
   async function empezar() {
+    if (mesa.jugadores.length === 0) {
+      window.alert("Agrega al menos un jugador antes de iniciar.");
+      return;
+    }
     setIniciando(true);
     try {
       await iniciarRepartoFisico({ codigo });
@@ -499,16 +633,21 @@ function Lobby({ mesa, codigo, esAdmin, uid }) {
           </div>
         </div>
 
-        <p style={{ color: "#C9A227", fontSize: 12, textAlign: "left", marginBottom: 6 }}>EN LA MESA ({mesa.jugadores.length}/5)</p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
-          {mesa.jugadores.map((j) => (
-            <div key={j.uid} style={{ background: "#F7F3E8", borderRadius: 10, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ width: 28, height: 28, borderRadius: "50%", background: "#0E4A38", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 }}>{j.avatarId}</span>
-              <span style={{ color: "#0B3D2E", fontWeight: "bold", fontSize: 14 }}>{j.alias}</span>
-              {j.uid === mesa.creadorUid && <span style={{ marginLeft: "auto", fontSize: 11, color: "#C9A227", fontWeight: "bold" }}>ADMIN</span>}
+        {esAdmin ? (
+          <ConsolaJugadores mesa={mesa} codigo={codigo} uid={uid} permiteQuitar={true} />
+        ) : (
+          <>
+            <p style={{ color: "#C9A227", fontSize: 12, textAlign: "left", marginBottom: 6 }}>EN LA MESA ({mesa.jugadores.length}/5)</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+              {mesa.jugadores.map((j) => (
+                <div key={j.uid} style={{ background: "#F7F3E8", borderRadius: 10, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ width: 28, height: 28, borderRadius: "50%", background: "#0E4A38", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 }}>{j.avatarId}</span>
+                  <span style={{ color: "#0B3D2E", fontWeight: "bold", fontSize: 14 }}>{j.alias}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </>
+        )}
 
         {esAdmin && solicitudes.length > 0 && (
           <>
@@ -571,6 +710,7 @@ export default function MesaEnVivo({ codigo, esAdmin, uid }) {
   const [repartiendo, setRepartiendo] = useState(false);
   const [segundosParaSiguiente, setSegundosParaSiguiente] = useState(null);
   const [editandoAnteEnVivo, setEditandoAnteEnVivo] = useState(false);
+  const [mostrarConsola, setMostrarConsola] = useState(false);
   const [nuevoAnteEnVivo, setNuevoAnteEnVivo] = useState(null);
   const ultimoNumRonda = useRef(null);
 
@@ -727,6 +867,13 @@ export default function MesaEnVivo({ codigo, esAdmin, uid }) {
               )}
               {" · "}
               <button
+                onClick={() => setMostrarConsola((m) => !m)}
+                style={{ background: "none", border: "none", color: "#C9A227", fontSize: 12, textDecoration: "underline", cursor: "pointer", padding: 0 }}
+              >
+                {mostrarConsola ? "Ocultar consola" : "Consola de jugadores"}
+              </button>
+              {" · "}
+              <button
                 onClick={async () => {
                   if (window.confirm("¿Cerrar esta sala? Nadie más va a poder jugar.")) {
                     await cerrarMesa({ codigo, uid });
@@ -739,6 +886,8 @@ export default function MesaEnVivo({ codigo, esAdmin, uid }) {
             </>
           )}
         </div>
+
+        {esAdmin && mostrarConsola && <ConsolaJugadores mesa={mesa} codigo={codigo} uid={uid} permiteQuitar={false} />}
 
         {mesa.fase === "repartiendo_inicial" && (
           <p style={{ color: "#C9A227", fontFamily: "Helvetica, Arial, sans-serif", textAlign: "center", fontSize: 14 }}>

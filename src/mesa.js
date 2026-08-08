@@ -12,7 +12,7 @@ function generarCodigo() {
   return codigo;
 }
 
-export async function crearMesa({ uid, alias, avatarId, celular, telefono, ante }) {
+export async function crearMesa({ uid, ante }) {
   let codigo = generarCodigo();
   let ref = doc(db, "mesas", codigo);
 
@@ -28,7 +28,7 @@ export async function crearMesa({ uid, alias, avatarId, celular, telefono, ante 
     creadorUid: uid,
     ante,
     fase: "esperando",
-    jugadores: [{ uid, alias, avatarId, celular: celular || "", telefono: telefono || "", asiento: 0, saldo: 500 }],
+    jugadores: [],
     solicitudes: [],
     creadaEn: Date.now(),
   });
@@ -126,4 +126,85 @@ export async function cerrarMesa({ codigo, uid }) {
     throw new Error("Solo el administrador puede cerrar la sala.");
   }
   await updateDoc(ref, { cerrada: true });
+}
+
+function generarUidManual() {
+  return "manual-" + Math.random().toString(36).slice(2, 10);
+}
+
+const AVATARES_MANUAL = ["🂡", "🂱", "🃁", "🃑", "🎩", "🕶️", "🦁", "🐯"];
+
+export async function agregarJugadorManual({ codigo, adminUid, nombre }) {
+  const ref = doc(db, "mesas", codigo);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error("La mesa ya no existe.");
+    const datos = snap.data();
+    if (datos.creadorUid !== adminUid) {
+      throw new Error("Solo el administrador puede agregar jugadores.");
+    }
+    if (datos.jugadores.length >= MAX_JUGADORES) {
+      throw new Error("La mesa ya está completa (5 jugadores).");
+    }
+    const nuevoJugador = {
+      uid: generarUidManual(),
+      alias: nombre.trim(),
+      avatarId: AVATARES_MANUAL[datos.jugadores.length % AVATARES_MANUAL.length],
+      celular: "",
+      telefono: "",
+      asiento: datos.jugadores.length,
+      saldo: 500,
+      agregadoPorAdmin: true,
+    };
+    tx.update(ref, { jugadores: [...datos.jugadores, nuevoJugador] });
+  });
+}
+
+export async function cambiarNombreJugador({ codigo, adminUid, jugadorUid, nuevoNombre }) {
+  const ref = doc(db, "mesas", codigo);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error("La mesa ya no existe.");
+    const datos = snap.data();
+    if (datos.creadorUid !== adminUid) {
+      throw new Error("Solo el administrador puede cambiar el nombre de un jugador.");
+    }
+    const jugadores = datos.jugadores.map((j) =>
+      j.uid === jugadorUid ? { ...j, alias: nuevoNombre.trim(), nombre: nuevoNombre.trim() } : j
+    );
+    tx.update(ref, { jugadores });
+  });
+}
+
+export async function subirFichas({ codigo, adminUid, jugadorUid, cantidad }) {
+  const ref = doc(db, "mesas", codigo);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error("La mesa ya no existe.");
+    const datos = snap.data();
+    if (datos.creadorUid !== adminUid) {
+      throw new Error("Solo el administrador puede modificar las fichas.");
+    }
+    const jugadores = datos.jugadores.map((j) =>
+      j.uid === jugadorUid ? { ...j, saldo: j.saldo + Number(cantidad) } : j
+    );
+    tx.update(ref, { jugadores });
+  });
+}
+
+export async function quitarJugador({ codigo, adminUid, jugadorUid }) {
+  const ref = doc(db, "mesas", codigo);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error("La mesa ya no existe.");
+    const datos = snap.data();
+    if (datos.creadorUid !== adminUid) {
+      throw new Error("Solo el administrador puede quitar jugadores.");
+    }
+    if (datos.fase !== "esperando") {
+      throw new Error("Solo se puede quitar jugadores mientras la mesa está en la sala de espera.");
+    }
+    const jugadores = datos.jugadores.filter((j) => j.uid !== jugadorUid).map((j, i) => ({ ...j, asiento: i }));
+    tx.update(ref, { jugadores });
+  });
 }

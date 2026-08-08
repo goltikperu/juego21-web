@@ -4,11 +4,12 @@ import { db } from "./firebase";
 
 const AVATARES = ["🂡", "🂱", "🃁", "🃑", "🎩", "🕶️", "🦁", "🐯"];
 
-export default function PerfilForm({ uid, onListo }) {
-  const [alias, setAlias] = useState("");
-  const [celular, setCelular] = useState("");
-  const [telefono, setTelefono] = useState("");
-  const [avatarId, setAvatarId] = useState(AVATARES[0]);
+export default function PerfilForm({ uid, onListo, onCancelar, valoresIniciales }) {
+  const esEdicion = Boolean(valoresIniciales);
+  const [alias, setAlias] = useState(valoresIniciales?.alias || "");
+  const [celular, setCelular] = useState(valoresIniciales?.celular || "");
+  const [telefono, setTelefono] = useState(valoresIniciales?.telefono || "");
+  const [avatarId, setAvatarId] = useState(valoresIniciales?.avatarId || AVATARES[0]);
   const [guardando, setGuardando] = useState(false);
 
   async function guardar(e) {
@@ -31,7 +32,7 @@ export default function PerfilForm({ uid, onListo }) {
   return (
     <div style={{ minHeight: "100vh", background: "#0B3D2E", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Helvetica, Arial, sans-serif" }}>
       <form onSubmit={guardar} style={{ background: "#F7F3E8", borderRadius: 12, padding: 32, maxWidth: 360, width: "100%" }}>
-        <h2 style={{ fontFamily: "Georgia, serif", color: "#0B3D2E", marginTop: 0 }}>Elige tu alias</h2>
+        <h2 style={{ fontFamily: "Georgia, serif", color: "#0B3D2E", marginTop: 0 }}>{esEdicion ? "Editar mi perfil" : "Elige tu alias"}</h2>
 
         <input
           value={alias}
@@ -82,8 +83,18 @@ export default function PerfilForm({ uid, onListo }) {
         </div>
 
         <button type="submit" disabled={guardando} style={{ width: "100%", padding: 12, borderRadius: 8, border: "none", background: "#C9A227", fontWeight: "bold", cursor: "pointer" }}>
-          {guardando ? "Guardando..." : "Empezar a jugar"}
+          {guardando ? "Guardando..." : esEdicion ? "Guardar cambios" : "Empezar a jugar"}
         </button>
+
+        {esEdicion && (
+          <button
+            type="button"
+            onClick={onCancelar}
+            style={{ width: "100%", padding: 10, marginTop: 8, border: "none", background: "transparent", color: "#555", cursor: "pointer" }}
+          >
+            Cancelar
+          </button>
+        )}
       </form>
     </div>
   );

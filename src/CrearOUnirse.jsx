@@ -3,7 +3,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase";
 import { crearMesa, solicitarUnirse } from "./mesa";
 
-export default function CrearOUnirse({ perfil, uid, onListo }) {
+export default function CrearOUnirse({ perfil, uid, onListo, onEditarPerfil, onVerSuperAdmin }) {
   const [modo, setModo] = useState(null); // "crear" | "unirse" | null
   const [ante, setAnte] = useState(20);
   const [codigo, setCodigo] = useState("");
@@ -39,10 +39,6 @@ export default function CrearOUnirse({ perfil, uid, onListo }) {
     try {
       const codigoNuevo = await crearMesa({
         uid,
-        alias: perfil.alias,
-        avatarId: perfil.avatarId,
-        celular: perfil.celular,
-        telefono: perfil.telefono,
         ante: Number(ante),
       });
       onListo({ codigo: codigoNuevo, esAdmin: true });
@@ -95,6 +91,14 @@ export default function CrearOUnirse({ perfil, uid, onListo }) {
       <div style={{ background: "#F7F3E8", borderRadius: 12, padding: 28, maxWidth: 380, width: "100%" }}>
         <h2 style={{ fontFamily: "Georgia, serif", color: "#0B3D2E", marginTop: 0, textAlign: "center" }}>Mesa de 21</h2>
 
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 18, fontSize: 13, color: "#555" }}>
+          <span style={{ fontSize: 18 }}>{perfil.avatarId}</span>
+          <span>{perfil.alias}</span>
+          <button onClick={onEditarPerfil} style={{ background: "none", border: "none", color: "#0B3D2E", fontSize: 12, textDecoration: "underline", cursor: "pointer", padding: 0 }}>
+            Editar
+          </button>
+        </div>
+
         {!modo && (
           <>
             <button
@@ -114,7 +118,7 @@ export default function CrearOUnirse({ perfil, uid, onListo }) {
 
         {modo === "crear" && (
           <>
-            <p style={{ fontSize: 13, color: "#555" }}>Vas a ser el administrador de esta mesa.</p>
+            <p style={{ fontSize: 13, color: "#555" }}>Vas a ser el administrador/crupier de esta mesa — repartes y controlas todo, pero no juegas ni apuestas.</p>
             <label style={{ fontSize: 13, color: "#0B3D2E", fontWeight: "bold" }}>Ante por ronda (fichas)</label>
             <input
               type="number"
@@ -163,6 +167,15 @@ export default function CrearOUnirse({ perfil, uid, onListo }) {
         )}
 
         {error && <p style={{ color: "#B3432B", fontSize: 13, marginTop: 12 }}>{error}</p>}
+
+        {onVerSuperAdmin && (
+          <button
+            onClick={onVerSuperAdmin}
+            style={{ display: "block", margin: "18px auto 0", background: "none", border: "none", color: "#C9A227", fontSize: 12, textDecoration: "underline", cursor: "pointer" }}
+          >
+            Ver panel de superadmin
+          </button>
+        )}
       </div>
     </div>
   );
