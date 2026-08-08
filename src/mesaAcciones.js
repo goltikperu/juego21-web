@@ -1,4 +1,4 @@
-import { doc, runTransaction } from "firebase/firestore";
+import { doc, runTransaction, updateDoc, increment } from "firebase/firestore";
 import { db } from "./firebase";
 
 function valorCarta(v) {
@@ -151,7 +151,27 @@ export async function revelarSiguiente({ codigo }) {
       ...j,
       saldo: i === ganadorIdx ? j.saldo - datos.ante + datos.pozo : j.saldo - datos.ante,
     }));
-    tx.update(ref, { jugadores: jugadoresFinal, fase: "resultado", ganadorIdx, turnoRevelando: null });
+    tx.update(ref, {
+      jugadores: jugadoresFinal,
+      fase: "resultado",
+      ganadorIdx,
+      turnoRevelando: null,
+      totalFichasMovidas: (datos.totalFichasMovidas || 0) + datos.pozo,
+      manosJugadas: (datos.manosJugadas || 0) + 1,
+    });
+
+    // Estadísticas globales por jugador (fuera de la transacción de la mesa,
+    // porque tocan otra colección y no necesitan ser atómicas con la mesa).
+    jugadores.forEach((j, i) => {
+      const refUsuario = doc(db, "usuarios", j.uid);
+      const ganancia = i === ganadorIdx ? datos.pozo - datos.ante : -datos.ante;
+      updateDoc(refUsuario, {
+        "estadisticas.juego21.totalApostado": increment(datos.ante),
+        "estadisticas.juego21.totalGanado": increment(Math.max(ganancia, 0)),
+        "estadisticas.juego21.totalPerdido": increment(Math.max(-ganancia, 0)),
+        "estadisticas.juego21.partidasGanadas": increment(i === ganadorIdx ? 1 : 0),
+      }).catch(() => {}); // si falla una actualización de estadística, no interrumpe el juego
+    });
   });
 }
 
