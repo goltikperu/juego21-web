@@ -3,6 +3,8 @@ import {
   sendSignInLinkToEmail,
   isSignInWithEmailLink,
   signInWithEmailLink,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, googleProvider, db } from "./firebase";
@@ -15,6 +17,7 @@ const ACTION_CODE_SETTINGS = {
 export async function entrarConGoogle() {
   const resultado = await signInWithPopup(auth, googleProvider);
   await asegurarPerfil(resultado.user);
+  return resultado.user;
 }
 
 export async function enviarLinkPorCorreo(correo) {
@@ -30,6 +33,20 @@ export async function completarLoginPorLink() {
   }
   const resultado = await signInWithEmailLink(auth, correo, window.location.href);
   window.localStorage.removeItem("correoParaLogin");
+  await asegurarPerfil(resultado.user);
+  return resultado.user;
+}
+
+// Entrar con correo + contraseña (para cuentas que ya se crearon con contraseña)
+export async function entrarConContrasena(correo, contrasena) {
+  const resultado = await signInWithEmailAndPassword(auth, correo, contrasena);
+  await asegurarPerfil(resultado.user);
+  return resultado.user;
+}
+
+// Crear una cuenta nueva con correo + contraseña
+export async function crearCuentaConContrasena(correo, contrasena) {
+  const resultado = await createUserWithEmailAndPassword(auth, correo, contrasena);
   await asegurarPerfil(resultado.user);
   return resultado.user;
 }
