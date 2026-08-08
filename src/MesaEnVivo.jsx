@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase";
 import { iniciarRepartoFisico, pedirCartasCerradas, revelarSiguiente, siguienteRonda } from "./mesaAcciones";
-import { aceptarSolicitud, rechazarSolicitud, cerrarMesa } from "./mesa";
+import { aceptarSolicitud, rechazarSolicitud, cerrarMesa, cambiarAnte } from "./mesa";
 
 const PALO = { p: "♠", c: "♥", d: "♦", t: "♣" };
 const ROJOS = new Set(["c", "d"]);
@@ -401,6 +401,21 @@ function Lobby({ mesa, codigo, esAdmin, uid }) {
   const [iniciando, setIniciando] = useState(false);
   const [cerrando, setCerrando] = useState(false);
   const [procesando, setProcesando] = useState(null); // uid de la solicitud en proceso
+  const [editandoAnte, setEditandoAnte] = useState(false);
+  const [nuevoAnte, setNuevoAnte] = useState(mesa.ante);
+  const [guardandoAnte, setGuardandoAnte] = useState(false);
+
+  async function guardarAnte() {
+    setGuardandoAnte(true);
+    try {
+      await cambiarAnte({ codigo, uid, nuevoAnte: Number(nuevoAnte) });
+      setEditandoAnte(false);
+    } catch (e) {
+      window.alert(e.message || "No se pudo cambiar el ante.");
+    } finally {
+      setGuardandoAnte(false);
+    }
+  }
 
   async function empezar() {
     setIniciando(true);
@@ -448,7 +463,40 @@ function Lobby({ mesa, codigo, esAdmin, uid }) {
         <div style={{ background: "#0E4A38", border: "2px solid #C9A227", borderRadius: 12, padding: "14px 20px", marginBottom: 20 }}>
           <div style={{ color: "#C9A227", fontSize: 12, letterSpacing: 2 }}>CÓDIGO PARA COMPARTIR</div>
           <div style={{ color: "#F2EAD3", fontSize: 30, fontWeight: "bold", letterSpacing: 2 }}>{codigo}</div>
-          <div style={{ color: "#C9A227", fontSize: 12, marginTop: 4 }}>Ante: {mesa.ante} fichas</div>
+          <div style={{ color: "#C9A227", fontSize: 12, marginTop: 4 }}>
+            {editandoAnte ? (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                Ante:
+                <input
+                  type="number"
+                  min={5}
+                  step={5}
+                  value={nuevoAnte}
+                  onChange={(e) => setNuevoAnte(e.target.value)}
+                  style={{ width: 60, padding: "2px 6px", borderRadius: 6, border: "1px solid #C9A227", textAlign: "center" }}
+                />
+                fichas
+                <button onClick={guardarAnte} disabled={guardandoAnte} style={{ ...botonEstilo("#C9A227", "#0B3D2E"), padding: "3px 10px", fontSize: 11, margin: 0 }}>
+                  {guardandoAnte ? "..." : "Guardar"}
+                </button>
+                <button onClick={() => { setEditandoAnte(false); setNuevoAnte(mesa.ante); }} style={{ background: "none", border: "none", color: "#C9A227", fontSize: 11, cursor: "pointer" }}>
+                  Cancelar
+                </button>
+              </span>
+            ) : (
+              <span>
+                Ante: {mesa.ante} fichas
+                {esAdmin && (
+                  <button
+                    onClick={() => setEditandoAnte(true)}
+                    style={{ background: "none", border: "none", color: "#C9A227", fontSize: 11, textDecoration: "underline", cursor: "pointer", marginLeft: 8 }}
+                  >
+                    Cambiar
+                  </button>
+                )}
+              </span>
+            )}
+          </div>
         </div>
 
         <p style={{ color: "#C9A227", fontSize: 12, textAlign: "left", marginBottom: 6 }}>EN LA MESA ({mesa.jugadores.length}/5)</p>
@@ -522,6 +570,8 @@ export default function MesaEnVivo({ codigo, esAdmin, uid }) {
   const [pensando, setPensando] = useState(false);
   const [repartiendo, setRepartiendo] = useState(false);
   const [segundosParaSiguiente, setSegundosParaSiguiente] = useState(null);
+  const [editandoAnteEnVivo, setEditandoAnteEnVivo] = useState(false);
+  const [nuevoAnteEnVivo, setNuevoAnteEnVivo] = useState(null);
   const ultimoNumRonda = useRef(null);
 
   useEffect(() => {
@@ -611,6 +661,15 @@ export default function MesaEnVivo({ codigo, esAdmin, uid }) {
     await siguienteRonda({ codigo });
   }
 
+  async function guardarAnteEnVivo() {
+    try {
+      await cambiarAnte({ codigo, uid, nuevoAnte: Number(nuevoAnteEnVivo) });
+      setEditandoAnteEnVivo(false);
+    } catch (e) {
+      window.alert(e.message || "No se pudo cambiar el ante.");
+    }
+  }
+
   const jugadorPidiendo = mesa.fase === "pidiendo" ? mesa.jugadores[mesa.turnoPidiendo] : null;
   const jugadorRevelando = mesa.fase === "revelando" ? mesa.jugadores[mesa.turnoRevelando] : null;
   const celebrando = mesa.fase === "resultado" && mesa.ganadorIdx !== -1;
@@ -642,6 +701,30 @@ export default function MesaEnVivo({ codigo, esAdmin, uid }) {
           <span style={{ color: "#F2EAD3", fontSize: 12, fontWeight: "bold" }}>{esAdmin ? "Eres el administrador" : "Jugador"}</span>
           {esAdmin && (
             <>
+              {" · "}
+              <span style={{ color: "#C9A227", fontSize: 12 }}>Ante: {mesa.ante}</span>{" "}
+              {editandoAnteEnVivo ? (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <input
+                    type="number"
+                    min={5}
+                    step={5}
+                    value={nuevoAnteEnVivo ?? mesa.ante}
+                    onChange={(e) => setNuevoAnteEnVivo(e.target.value)}
+                    style={{ width: 50, padding: "1px 4px", borderRadius: 4, border: "1px solid #C9A227", fontSize: 11, textAlign: "center" }}
+                  />
+                  <button onClick={guardarAnteEnVivo} style={{ background: "none", border: "none", color: "#C9A227", fontSize: 11, textDecoration: "underline", cursor: "pointer", padding: 0 }}>
+                    Guardar
+                  </button>
+                </span>
+              ) : (
+                <button
+                  onClick={() => { setNuevoAnteEnVivo(mesa.ante); setEditandoAnteEnVivo(true); }}
+                  style={{ background: "none", border: "none", color: "#C9A227", fontSize: 12, textDecoration: "underline", cursor: "pointer", padding: 0 }}
+                >
+                  Cambiar
+                </button>
+              )}
               {" · "}
               <button
                 onClick={async () => {
