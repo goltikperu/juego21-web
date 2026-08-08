@@ -548,10 +548,6 @@ function Lobby({ mesa, codigo, esAdmin, uid }) {
   }
 
   async function empezar() {
-    if (mesa.jugadores.length === 0) {
-      window.alert("Agrega al menos un jugador antes de iniciar.");
-      return;
-    }
     setIniciando(true);
     try {
       await iniciarRepartoFisico({ codigo });
