@@ -353,6 +353,50 @@ function botonEstilo(bg, color, border) {
   };
 }
 
+function VistaObs({ mesa, fraseCrupier }) {
+  return (
+    <div style={{ minHeight: "100vh", background: "#0B3D2E", padding: "16px 10px", fontFamily: "Helvetica, Arial, sans-serif" }}>
+      <div style={{ textAlign: "center", marginBottom: 10 }}>
+        <div style={{ color: "#C9A227", fontSize: 12, letterSpacing: 2 }}>POZO</div>
+        <div style={{ color: "#F2EAD3", fontSize: 32, fontWeight: "bold" }}>{mesa.pozo}</div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        {mesa.jugadores.map((j, i) => {
+          const enTurno =
+            (mesa.fase === "pidiendo" && i === mesa.turnoPidiendo) ||
+            (mesa.fase === "revelando" && i === mesa.turnoRevelando) ||
+            (mesa.fase === "repartiendo_inicial" && i === mesa.turnoReparto);
+          const esGanador = mesa.fase === "resultado" && i === mesa.ganadorIdx;
+          const totalVisible = j.revelada || mesa.fase === "resultado" ? totalMano(manoCompleta(j)) : null;
+
+          return (
+            <div
+              key={j.uid}
+              style={{
+                background: "#F7F3E8",
+                borderRadius: 10,
+                padding: 10,
+                textAlign: "center",
+                border: enTurno ? "3px solid #C9A227" : esGanador ? "3px solid #2E7D32" : "3px solid transparent",
+              }}
+            >
+              <div style={{ color: "#0B3D2E", fontSize: 13, fontWeight: "bold" }}>{j.nombre}</div>
+              <div style={{ color: "#0B3D2E", fontSize: 44, fontWeight: "bold", lineHeight: 1.1 }}>
+                {j.cartaAbierta ? j.cartaAbierta.valor : "-"}
+              </div>
+              <div style={{ color: "#5F5E5A", fontSize: 11 }}>Fichas {j.saldo}</div>
+              <div style={{ color: "#5F5E5A", fontSize: 11 }}>Suma {totalVisible === null ? "?" : totalVisible}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      <p style={{ color: "#C9A227", fontSize: 13, textAlign: "center", marginTop: 14 }}>{fraseCrupier}</p>
+    </div>
+  );
+}
+
 function Lobby({ mesa, codigo, esAdmin, uid }) {
   const [iniciando, setIniciando] = useState(false);
   const [cerrando, setCerrando] = useState(false);
@@ -471,6 +515,7 @@ function Lobby({ mesa, codigo, esAdmin, uid }) {
 }
 
 export default function MesaEnVivo({ codigo, esAdmin, uid }) {
+  const modoObs = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("obs") === "1";
   const [mesa, setMesa] = useState(null);
   const [cantidadElegida, setCantidadElegida] = useState(0);
   const [fraseCrupier, setFraseCrupier] = useState("");
@@ -506,7 +551,7 @@ export default function MesaEnVivo({ codigo, esAdmin, uid }) {
       setSegundosParaSiguiente(null);
       return;
     }
-    setSegundosParaSiguiente(6);
+    setSegundosParaSiguiente(10);
     const intervalo = setInterval(() => {
       setSegundosParaSiguiente((s) => {
         if (s === null) return s;
@@ -541,6 +586,10 @@ export default function MesaEnVivo({ codigo, esAdmin, uid }) {
         </div>
       </div>
     );
+  }
+
+  if (modoObs && mesa.fase !== "esperando") {
+    return <VistaObs mesa={mesa} fraseCrupier={fraseCrupier} />;
   }
 
   if (mesa.fase === "esperando") {
@@ -668,10 +717,10 @@ export default function MesaEnVivo({ codigo, esAdmin, uid }) {
             <p style={{ color: "#F2EAD3", fontFamily: "Helvetica, Arial, sans-serif", fontSize: 15, marginBottom: 14 }}>
               {mesa.ganadorIdx === -1 ? "Todos se pasaron de 21. Nadie se lleva el pozo esta mano." : `${mesa.jugadores[mesa.ganadorIdx].nombre} se lleva el pozo de ${mesa.pozo} fichas.`}
             </p>
-            <p style={{ color: "#C9A227", fontFamily: "Helvetica, Arial, sans-serif", fontSize: 13, marginBottom: 12 }}>Nueva mano en {segundosParaSiguiente ?? 6} segundos...</p>
+            <p style={{ color: "#C9A227", fontFamily: "Helvetica, Arial, sans-serif", fontSize: 13, marginBottom: 12 }}>Nueva mano en {segundosParaSiguiente ?? 10} segundos...</p>
             {esAdmin && (
               <button onClick={manejarSiguienteYa} style={botonEstilo("#C9A227", "#0B3D2E")}>
-                Empezar ya
+                Limpiar mesa
               </button>
             )}
           </div>
